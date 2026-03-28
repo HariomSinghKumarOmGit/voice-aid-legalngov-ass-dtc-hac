@@ -86,7 +86,7 @@ def transcribe_audio(audio_path: str) -> str:
     logger.info(f"Transcribing with whisper-cli ({WHISPER_MODEL})...")
     trans = subprocess.run(
         ["whisper-cli", "-f", wav_path, "--model", WHISPER_MODEL,
-         "--output-txt", "--no-prints"],
+         "-l", "auto", "--output-txt", "--no-prints"],
         capture_output=True, text=True, timeout=120
     )
 
@@ -111,22 +111,51 @@ def transcribe_audio(audio_path: str) -> str:
 
 
 def text_to_speech(text: str, hindi: bool = False) -> str:
-    model = (f"{MODELS_PATH}/hi_IN-pratham-medium.onnx" if hindi
-             else f"{MODELS_PATH}/en_US-lessac-medium.onnx")
-
     out_path = f"/tmp/va_{os.urandom(4).hex()}.wav"
 
-    # Sanitize: keep only basic text characters Piper can handle
-    safe_text = re.sub(r'[^\w\s।,.!?\-:\'"()]', '', text)
+    # Sanitize text
+    safe_text = re.sub(r'[^\w\s।,.!?\-:\'"()₹]', '', text)
     if not safe_text.strip():
-        safe_text = "Sorry, I could not generate a response."
+        safe_text = "माफ़ कीजिए" if hindi else "Sorry, I could not generate a response."
 
-    logger.info(f"TTS ({model.split('/')[-1]}): {safe_text[:80]}...")
+    if hindi:
+        # Use edge-tts for Hindi — much better quality than Piper
+        mp3_path = out_path.replace(".wav", ".mp3")
+        logger.info(f"TTS (edge-tts hi-IN-MadhurNeural): {safe_text[:80]}...")
 
-    # Use a temporary text file instead of echo to avoid shell escaping issues
+        try:
+            subprocess.run([
+                sys.executable, "-m", "edge_tts",
+                "--text", safe_text,
+                "--voice", "hi-IN-MadhurNeural",
+                "--write-media", mp3_path,
+            ], check=True, capture_output=True, text=True, timeout=30)
+
+            # Convert mp3 to wav for consistent browser playback
+            subprocess.run([
+                "ffmpeg", "-y", "-nostdin", "-i", mp3_path,
+                "-ar", "22050", "-ac", "1", "-f", "wav", out_path,
+            ], check=True, capture_output=True, text=True, timeout=15)
+
+            if os.path.exists(mp3_path):
+                os.unlink(mp3_path)
+        except Exception as e:
+            logger.warning(f"edge-tts failed, falling back to Piper: {e}")
+            # Fallback to Piper if edge-tts fails (e.g. no internet)
+            _piper_tts(safe_text, f"{MODELS_PATH}/hi_IN-pratham-medium.onnx", out_path)
+    else:
+        # Use Piper for English — works great
+        model = f"{MODELS_PATH}/en_US-lessac-medium.onnx"
+        logger.info(f"TTS (piper {model.split('/')[-1]}): {safe_text[:80]}...")
+        _piper_tts(safe_text, model, out_path)
+
+    return out_path
+
+
+def _piper_tts(text: str, model: str, out_path: str):
+    """Run Piper TTS via subprocess."""
     txt_file = f"/tmp/va_txt_{os.urandom(4).hex()}.txt"
-    Path(txt_file).write_text(safe_text)
-
+    Path(txt_file).write_text(text)
     try:
         subprocess.run(
             f'cat "{txt_file}" | piper --model {model} --output_file {out_path}',
@@ -138,8 +167,6 @@ def text_to_speech(text: str, hindi: bool = False) -> str:
     finally:
         if os.path.exists(txt_file):
             os.unlink(txt_file)
-
-    return out_path
 
 
 class TextQuery(BaseModel):
