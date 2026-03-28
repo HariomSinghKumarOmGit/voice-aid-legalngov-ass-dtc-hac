@@ -13,7 +13,7 @@ LLM_MODEL = os.getenv("LLM_MODEL", "gemma2:2b")
 OLLAMA_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 
 PROMPT_EN = """
-You are VoiceAid, an assistant created by team aiova to help Indian citizens.
+You are VoiceAid, an assistant to help Indian citizens.
 Answer in simple, easy English that anyone can understand.
 Keep answers to 3-5 sentences. Mention the scheme name if applicable.
 If info is not in context, say: "I do not have this information."
@@ -27,7 +27,7 @@ Answer:
 """
 
 PROMPT_HI = """
-Tum VoiceAid ho, team aiova dwara banaya gaya ek sahayak jo Bharat ke nagrikon ki madad karta hai.
+Tum VoiceAid ho, tum ek sahayak jo Bharat ke nagrikon ki madad karta hai.
 IMPORTANT: Tum SIRF Hindi mein jawab doge. Koi bhi English word mat likho.
 Har jawab saral Hindi mein do jo koi bhi samajh sake.
 Jawab 3-5 lines mein do. Yojana ka naam zaroor batao.
@@ -36,9 +36,9 @@ Agar jaankari context mein nahi hai, to kaho: "Mujhe yeh jaankari nahi hai."
 Context:
 {context}
 
-Sawaal: {question}
+प्रश्न: {question}
 
-Jawab:
+उत्तर:
 """
 
 _qa_chain_en = None
@@ -47,7 +47,7 @@ _qa_chain_hi = None
 
 def _is_hindi(text: str) -> bool:
     """Check if text contains significant Devanagari characters."""
-    deva = sum(1 for c in text if '\u0900' <= c <= '\u097F')
+    deva = sum(1 for c in text if "\u0900" <= c <= "\u097f")
     return deva / max(len(text), 1) > 0.15
 
 
@@ -64,9 +64,7 @@ def _get_chain(hindi: bool = False):
     llm = ChatOllama(model=LLM_MODEL, base_url=OLLAMA_URL, temperature=0.3)
 
     template = PROMPT_HI if hindi else PROMPT_EN
-    prompt = PromptTemplate(
-        template=template, input_variables=["context", "question"]
-    )
+    prompt = PromptTemplate(template=template, input_variables=["context", "question"])
     chain = RetrievalQA.from_chain_type(
         llm=llm,
         chain_type="stuff",

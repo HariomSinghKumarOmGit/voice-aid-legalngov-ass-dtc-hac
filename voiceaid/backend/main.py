@@ -60,14 +60,10 @@ def transcribe_audio(audio_path: str) -> str:
         # FFmpeg conversion
         conv = subprocess.run([
             "ffmpeg",
-            "-y",                      # overwrite
-            "-nostdin",                 # don't try to read terminal
+            "-y", "-nostdin",
             "-i", audio_path,
-            "-vn",                     # no video
-            "-ar", "16000",
-            "-ac", "1",
-            "-c:a", "pcm_s16le",
-            "-f", "wav",
+            "-vn", "-ar", "16000", "-ac", "1",
+            "-c:a", "pcm_s16le", "-f", "wav",
             wav_path,
         ], capture_output=True, text=True, timeout=30)
 
@@ -82,13 +78,33 @@ def transcribe_audio(audio_path: str) -> str:
             os.unlink(wav_path)
         raise Exception("Audio too short or silent.")
 
-    # ── Step 2: Whisper transcription ──
-    logger.info(f"Transcribing with whisper-cli ({WHISPER_MODEL})...")
-    trans = subprocess.run(
+    # ── Step 1: Detect language first ──
+    logger.info("Detecting language...")
+    detect = subprocess.run(
         ["whisper-cli", "-f", wav_path, "--model", WHISPER_MODEL,
-         "-l", "auto", "--output-txt", "--no-prints"],
-        capture_output=True, text=True, timeout=120
+         "--detect-language"],
+        capture_output=True, text=True, timeout=30
     )
+    detected_lang = "en"
+    # Whisper prints: "auto-detected language: hi (p = 0.98)" to stderr
+    all_output = (detect.stdout or "") + (detect.stderr or "")
+    import re as _re
+    lang_match = _re.search(r'auto-detected language:\s*(\w+)', all_output)
+    if lang_match:
+        detected_lang = lang_match.group(1)
+    logger.info(f"Language detection output: {lang_match.group(0) if lang_match else 'not found'}")
+
+    logger.info(f"Detected language: {detected_lang}")
+
+    # ── Step 2: Transcribe with detected language ──
+    logger.info(f"Transcribing with whisper-cli ({WHISPER_MODEL}), lang={detected_lang}...")
+    cmd = [
+        "whisper-cli", "-f", wav_path, "--model", WHISPER_MODEL,
+        "-l", detected_lang,
+        "--output-txt", "--no-prints",
+        "--suppress-nst",       # suppress non-speech tokens
+    ]
+    trans = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
 
     if trans.returncode != 0:
         logger.error(f"Whisper stderr:\n{trans.stderr}")
@@ -100,21 +116,31 @@ def transcribe_audio(audio_path: str) -> str:
     text = ""
     if Path(txt_path).exists():
         text = Path(txt_path).read_text().strip()
-        # Remove [BLANK_AUDIO] markers
-        text = text.replace("[BLANK_AUDIO]", "").strip()
         os.unlink(txt_path)
 
-    if os.path.exists(wav_path):
+    # Clean up common Whisper artifacts
+    for garbage in ["[BLANK_AUDIO]", "(music)", "(laughing)", "[Music]",
+                     "(upbeat music)", "(gentle music)", "(sighs)"]:
+        text = text.replace(garbage, "")
+    text = text.strip()
+
+    if os.path.exists(wav_path) and wav_path != audio_path:
         os.unlink(wav_path)
 
+    logger.info(f"Transcription result: '{text}'")
     return text
 
 
 def text_to_speech(text: str, hindi: bool = False) -> str:
     out_path = f"/tmp/va_{os.urandom(4).hex()}.wav"
 
-    # Sanitize text
-    safe_text = re.sub(r'[^\w\s।,.!?\-:\'"()₹]', '', text)
+    # Sanitize text — preserve Devanagari (U+0900–U+097F) including matras/combining marks
+    if hindi:
+        # For Hindi: keep Devanagari, basic Latin, punctuation, digits
+        safe_text = re.sub(r'[^\u0900-\u097F\w\s।,.!?\-:\'"()₹0-9]', '', text)
+    else:
+        # For English: strip non-ASCII (emojis etc.)
+        safe_text = re.sub(r'[^\x20-\x7E\n]', '', text)
     if not safe_text.strip():
         safe_text = "माफ़ कीजिए" if hindi else "Sorry, I could not generate a response."
 
