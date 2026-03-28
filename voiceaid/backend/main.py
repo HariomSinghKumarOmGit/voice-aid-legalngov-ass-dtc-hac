@@ -2,7 +2,7 @@ from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-import subprocess, tempfile, os, base64, sys, logging
+import subprocess, tempfile, os, base64, sys, logging, re
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -71,11 +71,13 @@ def text_to_speech(text: str, hindi: bool = False) -> str:
             else f"{MODELS_PATH}/en_US-lessac-medium.onnx"
     
     out_path = f"/tmp/va_{os.urandom(4).hex()}.wav"
-    safe = text.replace('"', '\\"').replace("'", "\\'")
     
+    # Sanitize text for Piper (remove emojis/unsupported unicode)
+    safe_text = re.sub(r'[^\w\s।,.!?-]', '', text)
+    safe_text = safe_text.replace('"', '\\"').replace("'", "\\'")
     logger.info(f"Generating speech with model {model}...")
     subprocess.run(
-        f'echo "{safe}" | piper --model {model} --output_file {out_path}',
+        f'echo "{safe_text}" | piper --model {model} --output_file {out_path}',
         shell=True, check=True
     )
     return out_path
