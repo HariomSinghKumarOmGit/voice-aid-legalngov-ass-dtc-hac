@@ -8,16 +8,17 @@ from dotenv import load_dotenv
 load_dotenv("../backend/.env")
 
 CHROMA_PATH = os.getenv("CHROMA_DB_PATH", "./chroma_db")
-EMBED_MODEL  = os.getenv("EMBED_MODEL", "nomic-embed-text")
-LLM_MODEL    = os.getenv("LLM_MODEL", "gemma2:2b")
-OLLAMA_URL   = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+EMBED_MODEL = os.getenv("EMBED_MODEL", "nomic-embed-text")
+LLM_MODEL = os.getenv("LLM_MODEL", "gemma2:2b")
+OLLAMA_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 
 PROMPT_TEMPLATE = """
-You are VoiceAid, a government rights assistant for Indian citizens.
+You are VoiceAid, an assistant created by team aiova to help Indian citizens.
 Answer in simple language anyone can understand.
 If the user writes in Hindi or Devanagari, respond in Hindi.
 If English, respond in English.
 Keep answers to 3–5 sentences. Mention which scheme your answer is from.
+
 If info is not in context, say: "Mujhe yeh jaankari nahi hai."
 
 Context:
@@ -29,6 +30,7 @@ Answer:
 """
 
 _qa_chain = None
+
 
 def _get_chain():
     global _qa_chain
@@ -44,9 +46,10 @@ def _get_chain():
         llm=llm,
         chain_type="stuff",
         retriever=vectorstore.as_retriever(search_kwargs={"k": 4}),
-        chain_type_kwargs={"prompt": prompt}
+        chain_type_kwargs={"prompt": prompt},
     )
     return _qa_chain
+
 
 def get_answer(question: str) -> str:
     return _get_chain().invoke({"query": question})["result"]
