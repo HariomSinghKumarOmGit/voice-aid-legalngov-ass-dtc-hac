@@ -19,7 +19,7 @@ const autoCommitAndPush = async () => {
     
     await execAsync('git add .');
     await execAsync(`git commit -m "Auto-commit: ${timeStamp}"`);
-    await execAsync('git push');
+    await execAsync('git push -u origin HEAD');
     
     console.log(`[${new Date().toLocaleString()}] ✅ Successfully pushed to GitHub!`);
   } catch (error) {

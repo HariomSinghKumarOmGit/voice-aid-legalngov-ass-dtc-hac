@@ -3,7 +3,7 @@ export PATH="/opt/homebrew/bin:$PATH"
 set -e
 
 # Start Ollama service using brew
-brew services start ollama
+brew services start ollama || true
 sleep 5
 
 echo "Pulling ollama models..."
