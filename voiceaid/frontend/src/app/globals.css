@@ -1,26 +1,136 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-brand-bg: #0b1120;
+  --color-secondary-bg: #1e293b;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  margin: 0;
+  background-color: #060e20 !important;
+  color: #ffffff;
+  font-family: 'Inter', 'SF Pro Display', sans-serif;
+  overflow-x: hidden;
+  min-height: 100vh;
+}
+
+/* Floating Bokeh Orbs - SUPER BRIGHT to match reference */
+.orb {
+  position: fixed;
+  border-radius: 50%;
+  filter: blur(60px);
+  z-index: 0;
+  pointer-events: none;
+  animation: floatOrb 15s ease-in-out infinite alternate;
+  opacity: 0.8;
+}
+.orb-1 { width: 300px; height: 300px; background: rgba(147, 130, 220, 0.4); top: 5%; left: 10%; }
+.orb-2 { width: 280px; height: 280px; background: rgba(212, 165, 255, 0.35); top: 50%; left: -5%; animation-delay: -5s; }
+.orb-3 { width: 350px; height: 350px; background: rgba(120, 160, 255, 0.3); top: -5%; right: 5%; animation-delay: -2s; }
+.orb-4 { width: 250px; height: 250px; background: rgba(255, 180, 210, 0.3); top: 60%; right: 5%; animation-delay: -8s; }
+.orb-5 { width: 200px; height: 200px; background: rgba(160, 140, 255, 0.4); bottom: -10%; left: 40%; animation-delay: -10s; }
+
+@keyframes floatOrb {
+  0% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(30px, -40px) scale(1.1); }
+  100% { transform: translate(-20px, 20px) scale(0.95); }
+}
+
+/* Center Mic Button */
+.mic-btn-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  width: 260px;
+  height: 260px;
+  margin: 0 auto;
+}
+
+.mic-btn-outer-glow {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(160, 140, 255, 0.5) 0%, rgba(147, 130, 220, 0) 65%);
+  animation: pulseOuter 3s ease-in-out infinite alternate;
+  z-index: 1;
+}
+
+.mic-btn-inner-ring {
+  position: absolute;
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  border: 4px solid rgba(230, 200, 255, 0.6);
+  background: radial-gradient(circle, rgba(180, 200, 255, 0.1) 0%, rgba(100, 120, 240, 0.35) 100%);
+  box-shadow: 0 0 35px rgba(200, 160, 255, 0.6), inset 0 0 25px rgba(200, 160, 255, 0.4);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 10;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.mic-btn-inner-ring:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 50px rgba(200, 160, 255, 0.8), inset 0 0 35px rgba(200, 160, 255, 0.5);
+}
+
+.mic-btn-inner-ring:active, .mic-btn-inner-ring.recording {
+  transform: scale(1.1);
+  border-color: rgba(255, 120, 120, 0.8);
+  background: radial-gradient(circle, rgba(255, 100, 100, 0.2) 0%, rgba(220, 60, 60, 0.45) 100%);
+  box-shadow: 0 0 60px rgba(255, 120, 120, 0.8), inset 0 0 30px rgba(255, 120, 120, 0.6);
+}
+
+@keyframes pulseOuter {
+  0% { transform: scale(0.85); opacity: 0.6; }
+  100% { transform: scale(1.1); opacity: 0.95; }
+}
+
+/* Base Waveform */
+.waveform-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  height: 48px;
+  opacity: 0.4;
+  transition: opacity 0.3s;
+}
+.waveform-container.active {
+  opacity: 1;
+}
+.wave-bar {
+  width: 2px;
+  background: rgba(200, 220, 255, 0.9);
+  border-radius: 2px;
+  animation: waveAnim 1s ease-in-out infinite;
+  box-shadow: 0 0 6px rgba(180, 200, 255, 0.8);
+}
+@keyframes waveAnim {
+  0%, 100% { height: 8px; }
+  50% { height: 28px; }
+}
+
+/* Glass Input */
+.input-glass {
+  background: rgba(20, 25, 50, 0.6);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(180, 160, 255, 0.3);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4), inset 0 0 15px rgba(180, 160, 255, 0.15);
+}
+
+/* Star Bottom Right */
+.sparkle-star {
+  position: fixed;
+  bottom: 30px;
+  right: 30px;
+  opacity: 0.5;
+  z-index: 10;
 }
