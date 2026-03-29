@@ -79,9 +79,20 @@ export default function Home() {
   const sourceRef      = useRef<MediaStreamAudioSourceNode | null>(null);
   const streamRef      = useRef<MediaStream | null>(null);
   const pcmChunksRef   = useRef<Float32Array[]>([]);
+  const currentAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Stop any currently playing AI audio
+  const stopAudio = () => {
+    if (currentAudioRef.current) {
+      currentAudioRef.current.pause();
+      currentAudioRef.current.currentTime = 0;
+      currentAudioRef.current = null;
+    }
+  };
 
   // ── Voice Recording (Web Audio API — raw PCM) ────────────────────
   const startRecording = async () => {
+    stopAudio(); // Stop AI speech when user starts talking
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true },
@@ -172,7 +183,10 @@ export default function Home() {
       });
 
       if (res.data.audio_base64) {
+        stopAudio();
         const audio = new Audio(`data:audio/wav;base64,${res.data.audio_base64}`);
+        currentAudioRef.current = audio;
+        audio.onended = () => { currentAudioRef.current = null; };
         audio.play();
       }
 
@@ -186,6 +200,7 @@ export default function Home() {
   // ── Send Text ─────────────────────────────────────────────────────
   const sendText = async () => {
     if (!textInput.trim()) return;
+    stopAudio(); // Stop AI speech when user sends new text
     setStatus("processing");
     setResult(null);
     setErrorMsg("");
@@ -307,9 +322,12 @@ export default function Home() {
           {result.audioBase64 && (
             <button
               onClick={() => {
+                stopAudio();
                 const audio = new Audio(
                   `data:audio/wav;base64,${result.audioBase64}`
                 );
+                currentAudioRef.current = audio;
+                audio.onended = () => { currentAudioRef.current = null; };
                 audio.play();
               }}
               className="mt-4 text-xs text-blue-400 hover:text-blue-300
