@@ -1,5 +1,5 @@
 "use client";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import axios from "axios";
 
 type Status = "idle" | "recording" | "processing" | "done" | "error";
@@ -106,6 +106,15 @@ export default function Home() {
     }
   };
 
+  const cancelRecording = () => {
+    if (status !== "recording") return;
+    setStatus("idle");
+    processorRef.current?.disconnect();
+    sourceRef.current?.disconnect();
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    audioCtxRef.current?.close();
+  };
+
   const stopRecording = async () => {
     if (status !== "recording") return;
     setStatus("processing");
@@ -116,7 +125,7 @@ export default function Home() {
     audioCtxRef.current?.close();
     const chunks = pcmChunksRef.current;
     const totalLength = chunks.reduce((acc, c) => acc + c.length, 0);
-    if (totalLength < 4000) {
+    if (totalLength < sampleRate * 0.8) {
       setErrorMsg("Recording too short — hold the button longer.");
       setStatus("error");
       return;
@@ -173,6 +182,57 @@ export default function Home() {
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") sendText();
   };
+
+  // ── Spacebar Hold to Record ──
+  const cbRefs = useRef({ start: startRecording, stop: stopRecording, cancel: cancelRecording, status: status });
+  cbRefs.current = { start: startRecording, stop: stopRecording, cancel: cancelRecording, status };
+
+  useEffect(() => {
+    let spaceDownTime = 0;
+    let isDown = false;
+
+    const down = (e: KeyboardEvent) => {
+      if (e.code === "Space" && !e.repeat) {
+        const active = document.activeElement?.tagName;
+        if (active === "INPUT" || active === "TEXTAREA") return;
+        e.preventDefault(); // Stop page scrolling
+        
+        const currentStatus = cbRefs.current.status;
+        if (currentStatus === "idle" || currentStatus === "done" || currentStatus === "error") {
+          isDown = true;
+          spaceDownTime = Date.now();
+          cbRefs.current.start();
+        }
+      }
+    };
+
+    const up = (e: KeyboardEvent) => {
+      if (e.code === "Space") {
+        const active = document.activeElement?.tagName;
+        if (active === "INPUT" || active === "TEXTAREA") return;
+
+        if (!isDown) return;
+        isDown = false;
+
+        const currentStatus = cbRefs.current.status;
+        if (currentStatus === "recording") {
+          // Require at least >1 second
+          if (Date.now() - spaceDownTime < 1000) {
+            cbRefs.current.cancel();
+          } else {
+            cbRefs.current.stop();
+          }
+        }
+      }
+    };
+
+    window.addEventListener("keydown", down);
+    window.addEventListener("keyup", up);
+    return () => {
+      window.removeEventListener("keydown", down);
+      window.removeEventListener("keyup", up);
+    };
+  }, []);
 
   // Generate some realistic looking dynamic wavebars
   const waveBars = [6, 10, 14, 8, 22, 16, 12, 18, 24, 14, 10, 8, 16, 20, 12, 6].map((h, i) => (

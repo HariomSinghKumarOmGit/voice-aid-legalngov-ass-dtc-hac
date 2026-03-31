@@ -103,6 +103,8 @@ def transcribe_audio(audio_path: str) -> str:
         "-l", detected_lang,
         "--output-txt", "--no-prints",
         "--suppress-nst",       # suppress non-speech tokens
+        "-et", "2.4",           # entropy threshold for decoding fail
+        "-nth", "0.4"           # no-speech probability threshold
     ]
     trans = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
 
@@ -120,9 +122,24 @@ def transcribe_audio(audio_path: str) -> str:
 
     # Clean up common Whisper artifacts
     for garbage in ["[BLANK_AUDIO]", "(music)", "(laughing)", "[Music]",
-                     "(upbeat music)", "(gentle music)", "(sighs)"]:
+                     "(upbeat music)", "(gentle music)", "(sighs)",
+                     "♪", "♪♪", "...", "---", "***", "???"]:
         text = text.replace(garbage, "")
     text = text.strip()
+
+    # Drop well-known silent/background-noise hallucinations
+    lower_test = text.lower()
+    hallucinations = [
+        "thank you.", "thank you for watching.", "thanks for watching.", 
+        "please subscribe to my channel.", "subscribe to my channel.",
+        "thanks for watching", "thank you", "subscribe.", "subscribe",
+        "you", "bye", "amine", "amen", "धन्यवाद।", "धन्यवाद", 
+        "सब्सक्राइब करें", "देखने के लिए धन्यवाद", "देखने के लिए धन्यवाद।", 
+        "कृपया सब्सक्राइब करें"
+    ]
+    if lower_test in hallucinations:
+        logger.warning(f"Discarding Whisper hallucination: '{text}'")
+        text = ""
 
     if os.path.exists(wav_path) and wav_path != audio_path:
         os.unlink(wav_path)
